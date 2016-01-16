@@ -1,0 +1,102 @@
+import numpy as np
+import re
+import matplotlib.pyplot as plt
+from sklearn import datasets, cluster
+
+class kmeans:
+	def __init__(self, x, y, k = 3, n_samples = 10):
+		self.x = x
+		self.y = y
+		self.k = k
+		self.shape = np.shape(x)
+		self.n_samples = n_samples
+		self.centroids = np.zeros((self.shape))
+		self.idx = np.zeros((self.shape[0],1))
+		self.same_class = {}
+		self.not_same_class = {}
+		self.iteration = []
+
+	def sample_index(self, num_index):
+		index = np.random.permutation(self.shape[0])
+		return np.sort(index[0:num_index])
+
+	def set_constraint(self):
+		index = self.sample_index(self.n_samples)
+		for i in range(len(index)):
+			self.same_class[index[i]] = []
+			self.not_same_class[index[i]] = []
+			for j in range(i):
+				if self.y[index[i]] == self.y[index[j]]:
+					self.same_class[index[i]].append(index[j])
+				else:
+					self.not_same_class[index[i]].append(index[j])
+		self.index = index
+
+	def compute_distance(self, vecx, vecy):
+		return np.sum(np.power(vecx - vecy,2))
+
+	def init_centroids(self):
+		init_index = self.sample_index(self.k)
+		self.centroids = self.x[init_index,:]
+
+	def compute_cost(self):
+		total_cost = 0.0
+		for i in range(self.shape[0]):
+			total_cost += self.compute_distance(self.x[i,:], self.centroids[self.idx[i][0],:])
+		return  total_cost / self.shape[0]
+
+	def is_valid(self, n_th, n_k):
+		if n_th not in self.index:
+			return True
+
+		same_list = self.same_class[n_th]
+		for i in range(len(same_list)):
+			if n_k != self.idx[same_list[i]]:
+				return False
+		not_same_list = self.not_same_class[n_th]
+		for i in range(len(not_same_list)):
+			if n_k == self.idx[not_same_list[i]]:
+				return False
+
+		return True
+
+	def find_closest(self):
+		for i in range(self.shape[0]):
+			min_dist = np.inf
+			flag = False
+			for j in range(self.k):
+				tmp_dist = self.compute_distance(self.x[i,:], self.centroids[j,:])
+				if tmp_dist < min_dist and self.is_valid(i, j):
+					min_dist = tmp_dist
+					self.idx[i] = j
+					flag = True
+			if flag == False:
+				return False
+
+		return True
+
+	def compute_centroids(self):
+		for i in range(self.k):
+			self.centroids[i,:] = np.mean(self.x[np.nonzero(self.idx == i)[0]], axis = 0)
+
+	def compute_accurate(self):
+		count = 0.0
+		for i in range(self.shape[0]):
+			if (self.y[i] == self.idx[i]):
+				count += 1
+		return count / self.shape[0]
+
+	def run_kmeans(self, iter = 150):
+		self.init_centroids()
+		self.set_constraint()
+		for i in range(iter):
+			self.find_closest()
+			self.compute_centroids()
+			self.iteration.append(self.compute_cost())
+			if (i >1 and self.iteration[i] - self.iteration[i-1] < 1e-5 ):
+				break
+		
+		#for i in range(self.k):
+			#print np.shape(np.nonzero(self.idx == i)[0])
+
+		return self.compute_accurate()
